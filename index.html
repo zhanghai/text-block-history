@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Text Block History</title>
+  </head>
+  <body>
+    <script>
+      (function () {
+        var stored = localStorage.getItem('text-block-history:theme');
+        var theme = stored === 'light' || stored === 'dark'
+          ? stored
+          : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.body.className = theme;
+      })();
+    </script>
+    <header class="fixed">
+      <nav>
+        <h5 class="max">Text Block History</h5>
+        <button id="theme-toggle-button" class="circle transparent" title="Toggle theme">
+          <i>dark_mode</i>
+        </button>
+        <button id="undo-button" class="circle transparent" title="Undo" disabled>
+          <i>undo</i>
+        </button>
+        <button id="redo-button" class="circle transparent" title="Redo" disabled>
+          <i>redo</i>
+        </button>
+        <button id="save-button" class="circle transparent" title="Save (Ctrl+S)">
+          <i>save</i>
+          <div id="save-badge" class="badge min" hidden></div>
+        </button>
+        <button id="history-button" class="circle transparent" title="History (Ctrl+H)" data-ui="#history-dialog">
+          <i>history</i>
+        </button>
+        <button id="clear-all-button" class="circle transparent" title="Clear" data-ui="#confirm-clear-dialog">
+          <i>delete_sweep</i>
+        </button>
+        <button id="add-top-button" class="circle" title="Add at start" data-ui="#add-block-dialog">
+          <i>add</i>
+        </button>
+      </nav>
+    </header>
+    <main class="responsive">
+      <article id="empty-state" class="medium middle-align center-align" hidden>
+        <div>
+          <i class="extra">note_add</i>
+          <h5>No blocks yet</h5>
+          <p>Add your first block to get started.</p>
+          <div class="space"></div>
+          <nav class="center-align">
+            <button id="add-first-button" data-ui="#add-block-dialog">
+              <i>add</i>
+              <span>Add block</span>
+            </button>
+          </nav>
+        </div>
+      </article>
+      <div id="block-list"></div>
+    </main>
+    <dialog id="history-dialog" class="right large">
+      <header class="fixed front">
+        <nav>
+          <h5 class="max">History</h5>
+          <button id="copy-history-button" class="circle transparent" title="Copy">
+            <i>content_copy</i>
+          </button>
+          <button id="download-history-button" class="circle transparent" title="Download">
+            <i>download</i>
+          </button>
+          <button data-ui="#history-dialog" class="circle transparent" title="Close">
+            <i>close</i>
+          </button>
+        </nav>
+      </header>
+    </dialog>
+    <dialog id="confirm-clear-dialog">
+      <h5>Clear everything?</h5>
+      <p>This deletes every block and the entire history. This cannot be undone.</p>
+      <nav class="right-align">
+        <button data-ui="#confirm-clear-dialog" class="transparent">Cancel</button>
+        <button id="confirm-clear-delete-button" data-ui="#confirm-clear-dialog" class="error">Clear</button>
+      </nav>
+    </dialog>
+    <dialog id="add-block-dialog">
+      <h5>Add Block</h5>
+      <form id="add-block-form">
+        <div class="field label border round">
+          <input id="add-block-id-input" type="text" autocomplete="off" autofocus />
+          <label>Block ID</label>
+        </div>
+        <p id="add-block-error" class="error-text" hidden></p>
+        <nav class="right-align">
+          <button type="button" data-ui="#add-block-dialog" class="transparent">Cancel</button>
+          <button type="submit">Add</button>
+        </nav>
+      </form>
+    </dialog>
+    <div id="copy-history-snackbar" class="snackbar">
+      <span>Copied to clipboard</span>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

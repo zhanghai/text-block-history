@@ -1,0 +1,153 @@
+/* Overrides Beer's default Material palette with our own. Beer itself
+   defines these same custom properties on these same selectors
+   (body.light / body.dark); since this stylesheet is imported after
+   beer.min.css, equal specificity plus later source order is enough to
+   win — no !important, no JS. */
+:root,
+body.light {
+  --primary: #0061a4;
+  --on-primary: #ffffff;
+  --primary-container: #d1e4ff;
+  --on-primary-container: #001d36;
+  --secondary: #535f70;
+  --on-secondary: #ffffff;
+  --secondary-container: #d7e3f7;
+  --on-secondary-container: #101c2b;
+  --tertiary: #6b5778;
+  --on-tertiary: #ffffff;
+  --tertiary-container: #f2daff;
+  --on-tertiary-container: #251431;
+  --error: #ba1a1a;
+  --on-error: #ffffff;
+  --error-container: #ffdad6;
+  --on-error-container: #410002;
+  --background: #fdfcff;
+  --on-background: #1a1c1e;
+  --surface: #faf9fc;
+  --on-surface: #1a1c1e;
+  --surface-variant: #dfe2eb;
+  --on-surface-variant: #43474e;
+  --outline: #73777f;
+  --outline-variant: #c3c7cf;
+  --shadow: #000000;
+  --scrim: #000000;
+  --inverse-surface: #2f3033;
+  --inverse-on-surface: #f1f0f4;
+  --inverse-primary: #9ecaff;
+  --surface-dim: #dadadd;
+  --surface-bright: #faf9fc;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #f4f3f7;
+  --surface-container: #eeedf1;
+  --surface-container-high: #e8e8eb;
+  --surface-container-highest: #e2e2e6;
+}
+
+body.dark {
+  --primary: #9ecaff;
+  --on-primary: #003258;
+  --primary-container: #00497d;
+  --on-primary-container: #d1e4ff;
+  --secondary: #bbc7db;
+  --on-secondary: #253140;
+  --secondary-container: #3b4858;
+  --on-secondary-container: #d7e3f7;
+  --tertiary: #d6bee4;
+  --on-tertiary: #3b2948;
+  --tertiary-container: #523f5f;
+  --on-tertiary-container: #f2daff;
+  --error: #ffb4ab;
+  --on-error: #690005;
+  --error-container: #93000a;
+  --on-error-container: #ffb4ab;
+  --background: #1a1c1e;
+  --on-background: #e2e2e6;
+  --surface: #121316;
+  --on-surface: #e2e2e6;
+  --surface-variant: #43474e;
+  --on-surface-variant: #c3c7cf;
+  --outline: #8d9199;
+  --outline-variant: #43474e;
+  --shadow: #000000;
+  --scrim: #000000;
+  --inverse-surface: #e2e2e6;
+  --inverse-on-surface: #2f3033;
+  --inverse-primary: #0061a4;
+  --surface-dim: #121316;
+  --surface-bright: #38393c;
+  --surface-container-lowest: #0d0e11;
+  --surface-container-low: #1a1c1e;
+  --surface-container: #1e2022;
+  --surface-container-high: #282a2d;
+  --surface-container-highest: #333538;
+}
+
+/* Beer CSS has no utility for this (it only offers `.responsive`, which is
+   just `inline-size: -webkit-fill-available` — no max-width or centering),
+   so the page's content column is genuinely ours to size. */
+main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+/* Card padding is bumped to 24px on every side (Beer's own article
+   default is 1rem/16px); the id label and textarea below are both made
+   flush with that same inset (no additional padding of their own) so
+   their text lines up exactly with the card's edge. */
+.block {
+  padding: 1.5rem;
+}
+
+/* Beer's own vertical-rhythm rule already spaces stacked block-list
+   children (margin-block-start: 1rem, skipping the first) — bumped to
+   match the card's own padding above, now that it's 24px instead of
+   Beer's default 16px. `!important` because that rule's selector is
+   more specific than a plain class would otherwise beat. */
+.block + .block {
+  margin-block-start: 1.5rem !important;
+}
+
+/* Pulls the toolbar back out toward the card's actual edge (undoing
+   0.5rem of the card's 1.5rem padding on each side it touches), so its
+   icon buttons sit closer to the card boundary than the rest of the
+   card's content. */
+.block nav {
+  margin-inline: -0.5rem;
+  margin-block-end: -0.5rem;
+}
+
+.block .field.textarea textarea,
+.block .field.textarea textarea:focus {
+  /* Ensures a comfortable, consistent block height across browsers. Beer's
+     .field > textarea:not([rows]) uses field-sizing:content to auto-grow
+     from empty, which is a newer CSS property without universal support
+     yet, and would otherwise leave a fresh block looking cramped. */
+  min-height: 6rem;
+  /* Beer doesn't set a line-height for form fields; a bit more breathing
+     room helps multi-line paragraphs specifically. */
+  line-height: 1.5;
+
+  /* Beer CSS has no borderless field variant — every variant (default,
+     .border, .fill, round) keeps at least a bottom indicator border, and
+     every variant adds its own ~15px inline padding on top of the card's
+     padding. Neither is wanted here: the border is dropped, and the
+     padding is zeroed so the textarea's text sits flush with the card's
+     own 24px inset instead of being offset further in. */
+  border: none !important;
+  padding: 0 !important;
+}
+
+/* Beer's .badge sets display:inline-flex unconditionally, which (like
+   #empty-state below) beats the browser's built-in [hidden]{display:
+   none} rule since author styles always win over user-agent ones. */
+#save-badge[hidden] {
+  display: none;
+}
+
+/* Same author-vs-user-agent-stylesheet issue as the save badge above:
+   Beer's .middle-align sets display:flex unconditionally. */
+#empty-state[hidden] {
+  display: none;
+}
+
