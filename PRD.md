@@ -54,10 +54,10 @@ Unlike a typical auto-committing event log, changes here are staged locally and 
 
 ```typescript
 interface DocumentState {
-  order: string[]; // Block IDs, in display order
-  blocks: Record<string, {
+  blocks: {
+    id: string;      // User-chosen, immutable
     content: string; // Plain text
-  }>;
+  }[]; // Array position is display order — no separate ordering field.
 }
 ```
 
@@ -65,8 +65,8 @@ interface DocumentState {
 
 ```typescript
 type DocumentEvent =
-  | { type: 'struct'; patch: Operation[] } // fast-json-patch
-  | { type: 'text'; blockId: string; delta: DeltaOp[] }; // quill-delta ops
+  | { type: 'patch'; patch: Operation[] } // fast-json-patch
+  | { type: 'delta'; blockId: string; delta: DeltaOp[] }; // quill-delta ops
 ```
 
 Events carry no ID or timestamp — the log's own position is the only ordering that matters, and nothing in the product needs to reference an individual event out of context.

@@ -3,7 +3,7 @@ import { buildAddBlockPatch, buildDeleteBlockPatch, buildMoveBlockPatch, buildPr
 import { computeDelta } from './diff';
 import { Kernel } from './kernel';
 import { deriveState, INITIAL_STATE } from './reducer';
-import type { DocumentEvent, DocumentState, StructEvent } from './types';
+import type { DocumentEvent, DocumentState, PatchEvent } from './types';
 
 interface AppElements {
   list: HTMLElement;
@@ -45,9 +45,9 @@ export class App {
   // except by save()/clearAll() explicitly handing it a new log.
   //
   // Entries are appended in the exact order actions happen (see
-  // recordTextEdit and stageStruct): a text edit only ever merges into
-  // the immediately preceding entry if that entry is a text edit for the
-  // very same block *and* isn't already saved — so a struct change, a
+  // recordTextEdit and stagePatch): a delta event only ever merges into
+  // the immediately preceding entry if that entry is a delta event for
+  // the very same block *and* isn't already saved — so a patch event, a
   // save, or switching to edit a different block, all end up as hard
   // boundaries that later edits can't merge back across.
   private activeEvents: DocumentEvent[] = [];
@@ -74,21 +74,21 @@ export class App {
   // element is what actually gates the merge (see recordTextEdit); this
   // is what breaks the streak the moment anything *other* than plain
   // typing touches the timeline. Without it, typing right after an undo
-  // or redo would silently fuse the new keystroke into whatever text
+  // or redo would silently fuse the new keystroke into whatever delta
   // event undo/redo just moved into that slot, corrupting that step's
   // undo granularity instead of recording it as its own step.
   private streakEvent: DocumentEvent | null = null;
 
   // Mirrors streakEvent above, but for moves. A 'move' JSON Patch op only
-  // names array indices, not the block that moved, so unlike a text
+  // names array indices, not the block that moved, so unlike a delta
   // event there's no way to recover "which block does this event belong
   // to" just by looking at the event — the id has to be tracked here
   // explicitly instead. A merged run of moves keeps only the *net*
   // displacement, from wherever the block sat before the run started to
   // wherever it sits now; moving it back to that same spot collapses the
-  // whole run to nothing, the same as typing back to a text event's
+  // whole run to nothing, the same as typing back to a delta event's
   // original content does in recordTextEdit.
-  private moveStreak: { blockId: string; event: StructEvent } | null = null;
+  private moveStreak: { blockId: string; event: PatchEvent } | null = null;
 
   constructor(kernel: Kernel, elements: AppElements) {
     this.kernel = kernel;
@@ -104,17 +104,23 @@ export class App {
     return deriveState(INITIAL_STATE, this.activeEvents);
   }
 
+  // A block's content by id, or '' if it doesn't exist in the given
+  // state — the baseline every text-edit delta is computed against.
+  private blockContent(state: DocumentState, blockId: string): string {
+    return state.blocks.find((block) => block.id === blockId)?.content ?? '';
+  }
+
   private render(): void {
     const state = this.getDisplayState();
 
-    for (const id of state.order) {
-      if (!this.blockElements.has(id)) {
-        this.createBlockElement(id, state.blocks[id].content);
+    for (const block of state.blocks) {
+      if (!this.blockElements.has(block.id)) {
+        this.createBlockElement(block.id, block.content);
       }
     }
 
     for (const id of [...this.blockElements.keys()]) {
-      if (!state.order.includes(id)) {
+      if (!state.blocks.some((block) => block.id === id)) {
         this.blockElements.get(id)!.article.remove();
         this.blockElements.delete(id);
       }
@@ -126,7 +132,7 @@ export class App {
       ? { start: focusedTextarea.selectionStart, end: focusedTextarea.selectionEnd }
       : null;
 
-    state.order.forEach((id, index) => {
+    state.blocks.forEach(({ id }, index) => {
       const element = this.blockElements.get(id)!.article;
       const expected = this.elements.list.children[index];
       if (expected !== element) {
@@ -147,7 +153,7 @@ export class App {
     // the moment focus moved elsewhere. New blocks get their initial
     // value from createBlockElement(); nothing else should overwrite it.
 
-    this.elements.emptyState.hidden = state.order.length > 0;
+    this.elements.emptyState.hidden = state.blocks.length > 0;
     this.updateChangeIndicators();
   }
 
@@ -287,10 +293,10 @@ export class App {
     this.moveStreak = null;
     const saved = this.kernel.getEventLog();
     const last = this.activeEvents[this.activeEvents.length - 1];
-    const lastIsMergeable = last === this.streakEvent && last?.type === 'text' && last.blockId === blockId && last !== saved[saved.length - 1];
+    const lastIsMergeable = last === this.streakEvent && last?.type === 'delta' && last.blockId === blockId && last !== saved[saved.length - 1];
 
-    if (lastIsMergeable && last?.type === 'text') {
-      const baseline = deriveState(INITIAL_STATE, this.activeEvents.slice(0, -1)).blocks[blockId]?.content ?? '';
+    if (lastIsMergeable && last?.type === 'delta') {
+      const baseline = this.blockContent(deriveState(INITIAL_STATE, this.activeEvents.slice(0, -1)), blockId);
       if (newText === baseline) {
         this.activeEvents.pop();
         this.streakEvent = null;
@@ -298,12 +304,12 @@ export class App {
         last.delta = computeDelta(baseline, newText);
       }
     } else {
-      const baseline = this.getDisplayState().blocks[blockId]?.content ?? '';
+      const baseline = this.blockContent(this.getDisplayState(), blockId);
       if (newText === baseline) {
         this.streakEvent = null;
         return;
       }
-      const event: DocumentEvent = { type: 'text', blockId, delta: computeDelta(baseline, newText) };
+      const event: DocumentEvent = { type: 'delta', blockId, delta: computeDelta(baseline, newText) };
       this.activeEvents.push(event);
       this.streakEvent = event;
     }
@@ -311,14 +317,14 @@ export class App {
     this.updateChangeIndicators();
   }
 
-  // For struct changes other than a move (add, delete, prepend) — moves
-  // go through moveBlock instead, since they can merge with a preceding
+  // For patch events other than a move (add, delete, prepend) — moves go
+  // through moveBlock instead, since they can merge with a preceding
   // move of the same block.
-  private stageStruct(patch: Operation[]): void {
+  private stagePatch(patch: Operation[]): void {
     this.redoStack = [];
     this.streakEvent = null;
     this.moveStreak = null;
-    this.activeEvents.push({ type: 'struct', patch });
+    this.activeEvents.push({ type: 'patch', patch });
     this.render();
   }
 
@@ -327,8 +333,8 @@ export class App {
   // saved or not. render() already handles any structural fallout (a
   // block reappearing, disappearing, or moving); the one thing it
   // deliberately never does — resyncing an existing block's live
-  // textarea — is exactly what a text event's undo/redo needs, so that's
-  // done here.
+  // textarea — is exactly what a delta event's undo/redo needs, so
+  // that's done here.
   private undo(): void {
     const event = this.activeEvents.pop();
     if (!event) return;
@@ -349,9 +355,9 @@ export class App {
 
   private syncAfterUndoRedo(event: DocumentEvent): void {
     this.render();
-    if (event.type === 'text') {
+    if (event.type === 'delta') {
       const textarea = this.blockElements.get(event.blockId)?.textarea;
-      if (textarea) textarea.value = this.getDisplayState().blocks[event.blockId]?.content ?? '';
+      if (textarea) textarea.value = this.blockContent(this.getDisplayState(), event.blockId);
     }
   }
 
@@ -396,7 +402,7 @@ export class App {
   private deleteBlock(blockId: string): void {
     const patch = buildDeleteBlockPatch(this.getDisplayState(), blockId);
     if (!patch) return;
-    this.stageStruct(patch);
+    this.stagePatch(patch);
   }
 
   // Consecutive moves of the same block merge into one event holding
@@ -407,9 +413,9 @@ export class App {
   // expected, not a bug — the document really hasn't changed.
   private moveBlock(blockId: string, direction: -1 | 1): void {
     const state = this.getDisplayState();
-    const currentIndex = state.order.indexOf(blockId);
+    const currentIndex = state.blocks.findIndex((block) => block.id === blockId);
     const newIndex = currentIndex + direction;
-    if (currentIndex === -1 || newIndex < 0 || newIndex >= state.order.length) return;
+    if (currentIndex === -1 || newIndex < 0 || newIndex >= state.blocks.length) return;
 
     this.redoStack = [];
     this.streakEvent = null;
@@ -424,16 +430,16 @@ export class App {
 
     if (mergeable && this.moveStreak) {
       const before = deriveState(INITIAL_STATE, this.activeEvents.slice(0, -1));
-      const originalIndex = before.order.indexOf(blockId);
+      const originalIndex = before.blocks.findIndex((block) => block.id === blockId);
       if (originalIndex === newIndex) {
         this.activeEvents.pop();
         this.moveStreak = null;
       } else {
-        this.moveStreak.event.patch = [{ op: 'move', from: `/order/${originalIndex}`, path: `/order/${newIndex}` }];
+        this.moveStreak.event.patch = [{ op: 'move', from: `/blocks/${originalIndex}`, path: `/blocks/${newIndex}` }];
       }
     } else {
       const patch = buildMoveBlockPatch(state, blockId, direction)!;
-      const event: StructEvent = { type: 'struct', patch };
+      const event: PatchEvent = { type: 'patch', patch };
       this.activeEvents.push(event);
       this.moveStreak = { blockId, event };
     }
@@ -462,14 +468,14 @@ export class App {
     }
 
     const state = this.getDisplayState();
-    if (state.blocks[id]) {
+    if (state.blocks.some((block) => block.id === id)) {
       this.showAddBlockError('That ID is already in use.');
       return;
     }
 
     const afterId = this.pendingInsertAfterId;
     const patch = afterId === null ? buildPrependBlockPatch(id) : buildAddBlockPatch(state, afterId, id);
-    this.stageStruct(patch);
+    this.stagePatch(patch);
 
     // Beer's dialog close runs on a deferred requestAnimationFrame and
     // unconditionally blurs whatever is focused at that later point —

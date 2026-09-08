@@ -119,18 +119,21 @@ src/
 
 ```ts
 interface DocumentState {
-  order: string[];                    // block IDs, in display order
-  blocks: Record<string, { content: string }>;
+  blocks: { id: string; content: string }[]; // in display order
 }
 
 type DocumentEvent =
-  | { type: 'struct'; patch: Operation[] }       // fast-json-patch ops
-  | { type: 'text'; blockId: string; delta: DeltaOp[] }; // Quill Delta ops
+  | { type: 'patch'; patch: Operation[] }                // fast-json-patch ops
+  | { type: 'delta'; blockId: string; delta: DeltaOp[] }; // Quill Delta ops
 ```
 
-Block IDs are free text chosen by the user, escaped per RFC 6901 when
-embedded into JSON Patch paths, so they can safely contain characters like
-`/` or `~`.
+Blocks are a plain array — array position doubles as display order, so
+there's no separate ordering structure to keep in sync. Block IDs are
+free text chosen by the user; since patch paths address blocks purely by
+array position, an id never needs escaping — it only ever appears as a
+plain value (`value.id` on an add, `blockId` on a delta event). Every
+id-based lookup is a linear scan, which is fine at the expected scale of
+roughly 4-16 blocks.
 
 ## Persistence
 

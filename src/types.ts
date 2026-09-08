@@ -1,12 +1,12 @@
 import type { Operation } from 'fast-json-patch';
 
 export interface Block {
+  id: string;
   content: string;
 }
 
 export interface DocumentState {
-  order: string[];
-  blocks: Record<string, Block>;
+  blocks: Block[];
 }
 
 export interface DeltaOp {
@@ -15,15 +15,15 @@ export interface DeltaOp {
   retain?: number;
 }
 
-export interface StructEvent {
-  type: 'struct';
+export interface PatchEvent {
+  type: 'patch';
   patch: Operation[];
 }
 
-export interface TextEvent {
-  type: 'text';
+export interface DeltaEvent {
+  type: 'delta';
   blockId: string;
   delta: DeltaOp[];
 }
 
-export type DocumentEvent = StructEvent | TextEvent;
+export type DocumentEvent = PatchEvent | DeltaEvent;
