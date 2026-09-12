@@ -1,6 +1,7 @@
 name: Deploy
-
-on:
+on: [![Deploy](https://github.com/zhanghai/text-block-history/actions/workflows/deploy.yml/badge.svg?event=public)](https://github.com/zhanghai/text-block-history/actions/workflows/deploy.yml)
+  push:
+push: 
   push:
     branches: ['master']
 
